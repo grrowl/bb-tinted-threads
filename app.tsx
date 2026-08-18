@@ -389,7 +389,7 @@ function ThreadRow({
           ...rowStyle(tone, isActive, isArchivedChild),
         }}
         className={cn(
-          "group flex flex-col gap-0.5 rounded-md border px-2.5 py-2 transition-colors",
+          "group flex flex-col gap-0.5 rounded-md border px-2.5 pt-1.5 pb-2 transition-colors",
           isArchivedChild && "opacity-60",
           tone === "idle" && idleRowClass(isActive, layout !== null),
         )}

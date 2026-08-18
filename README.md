@@ -3,13 +3,16 @@
 A bb plugin that contributes a replacement sidebar thread list named
 `Tinted Threads`.
 
+![Tinted Threads sidebar showing active, blocked, and idle thread rows](docs/screenshot.png)
+
 Rows group by project, use a red hue when a thread is blocked on input or
 failed, and use a subtle green hue while work is active. Sub-threads render
 directly beneath their parent with a simple depth indent. Right-clicking a row
 opens a thread actions menu. Each row subtitle shows:
 
-- provider icon plus effective model label; Claude and Codex use provider
-  glyphs, and other providers get a compact fallback icon
+- provider icon plus effective model label; Claude, Codex, Cursor, Pi,
+  OpenCode, and Hermes use provider glyphs, and other providers get a compact
+  fallback icon
 - short uncommitted git stats as fixed `+n` and `-n` tokens
 - worktree, branch, or machine name, truncated aggressively
 

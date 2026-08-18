@@ -7,6 +7,7 @@ import {
   modelLabel,
   parseDiffStat,
   pullRequestAttentionLabel,
+  pullRequestBadgeLabel,
   workspaceLabel,
   type ThreadModelMetadata,
 } from "@/lib/subtitle";
@@ -174,8 +175,11 @@ export function buildSubtitleParts({
     parts.push(modelLabel(thread, modelMetadata));
   }
   if (settings.showPullRequest && pullRequest) {
+    const status = pullRequestAttentionLabel(pullRequest.attention);
     parts.push(
-      `#${pullRequest.number} ${pullRequestAttentionLabel(pullRequest.attention)}`,
+      status === "PR"
+        ? pullRequestBadgeLabel(pullRequest.number)
+        : `${pullRequestBadgeLabel(pullRequest.number)} ${status}`,
     );
   }
   const workspace = workspaceLabel(thread, settings.workspaceLabel);
@@ -208,7 +212,7 @@ export function SubtitleRow({
   if (!model && !pullRequest && !workspace && !diff) return null;
 
   return (
-    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 overflow-hidden pl-4 text-2xs text-muted-foreground">
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden pl-4 text-2xs leading-none text-muted-foreground">
       {settings.showModel && model ? (
         <ModelCell
           label={model}

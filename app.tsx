@@ -342,12 +342,12 @@ function ThreadRow({
           ...rowStyle(tone, isActive, isArchivedChild),
         }}
         className={cn(
-          "group block rounded-md border px-2.5 py-2 transition-colors",
+          "group flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5 transition-colors",
           isArchivedChild && "opacity-60",
           tone === "idle" && idleRowClass(isActive, layout !== null),
         )}
       >
-        <div className="relative flex min-w-0 items-center gap-2">
+        <div className="relative flex min-w-0 items-center gap-2 leading-none">
           {depth > 0 ? (
             <span className="absolute left-1 top-1/2 h-px w-2 -translate-x-3 -translate-y-1/2 bg-sidebar-border" />
           ) : null}
@@ -357,7 +357,7 @@ function ThreadRow({
           />
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-sm text-foreground",
+              "min-w-0 flex-1 truncate text-sm leading-none text-foreground",
               thread.isUnread && !isArchivedChild && "font-medium",
             )}
           >

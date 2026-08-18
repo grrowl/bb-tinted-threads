@@ -130,6 +130,10 @@ export function modelLabel(
   return model ? readableModelName(model) : labelize(String(providerId));
 }
 
+export function pullRequestBadgeLabel(number: number): string {
+  return `PR#${number}`;
+}
+
 export function pullRequestAttentionLabel(
   attention: string,
 ): string {

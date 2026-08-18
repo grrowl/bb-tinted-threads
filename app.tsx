@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import {
   definePluginApp,
   experimental_useSidebarThreadActions as useSidebarThreadActions,
   experimental_useSidebarThreadSplit as useSidebarThreadSplit,
   experimental_useSidebarThreads as useSidebarThreads,
+  useRealtime,
   useRpc,
   type PluginSidebarThread,
   type PluginThreadListProps,
@@ -35,6 +36,17 @@ type ThreadModelMetadata = {
   providerId: string;
   model: string | null;
 };
+
+const LIVE_DISPLAY_STATUSES = new Set([
+  "active",
+  "starting",
+  "stopping",
+  "provisioning",
+  "host-reconnecting",
+  "waiting-for-host",
+]);
+
+const STATUS_REFRESH_DEBOUNCE_MS = 150;
 
 function SidebarThreadList({
   activeThreadId,
@@ -68,6 +80,39 @@ function SidebarThreadList({
   const [threadModels, setThreadModels] = useState<
     Record<string, ThreadModelMetadata>
   >({});
+  const [displayStatuses, setDisplayStatuses] = useState<
+    Record<string, string | null>
+  >({});
+  const [statusRefreshTick, setStatusRefreshTick] = useState(0);
+  const visibleThreadIds = useMemo(
+    () => new Set(visibleThreads.map((thread) => thread.id)),
+    [visibleThreads],
+  );
+  const visibleThreadIdsRef = useRef(visibleThreadIds);
+  visibleThreadIdsRef.current = visibleThreadIds;
+  const statusRefreshTimerRef = useRef<number | null>(null);
+
+  useRealtime("thread:changed", (payload) => {
+    if (!shouldRefreshDisplayStatuses(payload, visibleThreadIdsRef.current)) {
+      return;
+    }
+    if (statusRefreshTimerRef.current !== null) {
+      window.clearTimeout(statusRefreshTimerRef.current);
+    }
+    statusRefreshTimerRef.current = window.setTimeout(() => {
+      statusRefreshTimerRef.current = null;
+      setStatusRefreshTick((tick) => tick + 1);
+    }, STATUS_REFRESH_DEBOUNCE_MS);
+  });
+
+  useEffect(
+    () => () => {
+      if (statusRefreshTimerRef.current !== null) {
+        window.clearTimeout(statusRefreshTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const environmentIds = [
@@ -110,12 +155,33 @@ function SidebarThreadList({
         if (!cancelled) setThreadModels(models);
       })
       .catch(() => {
-        if (!cancelled) setThreadModels({});
+        // Keep the last good model labels on transient RPC failure.
       });
     return () => {
       cancelled = true;
     };
   }, [rpc, visibleThreads]);
+
+  useEffect(() => {
+    const threadIds = visibleThreads.map((thread) => thread.id);
+    if (threadIds.length === 0) {
+      setDisplayStatuses({});
+      return;
+    }
+
+    let cancelled = false;
+    void rpc
+      .call("threadDisplayStatuses", { threadIds })
+      .then(({ statuses }) => {
+        if (!cancelled) setDisplayStatuses(statuses);
+      })
+      .catch(() => {
+        // Keep the last good runtime tones on transient RPC failure.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rpc, visibleThreads, statusRefreshTick]);
 
   if (status === "loading") return null;
 
@@ -151,6 +217,7 @@ function SidebarThreadList({
                     : null
                 }
                 modelMetadata={threadModels[thread.id]}
+                displayStatus={displayStatuses[thread.id]}
                 onNavigate={onNavigate}
               />
             ))}
@@ -167,6 +234,7 @@ function ThreadRow({
   isActive,
   gitStat,
   modelMetadata,
+  displayStatus,
   onNavigate,
 }: {
   thread: PluginSidebarThread;
@@ -174,11 +242,12 @@ function ThreadRow({
   isActive: boolean;
   gitStat: string | null | undefined;
   modelMetadata: ThreadModelMetadata | undefined;
+  displayStatus: string | null | undefined;
   onNavigate: () => void;
 }) {
   const actions = useSidebarThreadActions();
   const { splitProps, layout } = useSidebarThreadSplit(thread.id);
-  const tone = rowTone(thread);
+  const tone = rowTone(thread, displayStatus);
   const title = threadTitle(thread);
   const metadata = subtitleMetadata(thread, gitStat, modelMetadata);
   const subtitle = subtitleLabel(metadata);
@@ -196,10 +265,13 @@ function ThreadRow({
           actions.open(thread.id, { split: event.metaKey || event.ctrlKey });
           onNavigate();
         }}
-        style={depth > 0 ? { marginLeft: Math.min(depth, 4) * 16 } : undefined}
+        style={{
+          ...(depth > 0 ? { marginLeft: Math.min(depth, 4) * 16 } : undefined),
+          ...rowStyle(tone, isActive),
+        }}
         className={cn(
           "group block rounded-md border px-2.5 py-2 transition-colors",
-          rowClass(tone, isActive, layout !== null),
+          tone === "idle" && idleRowClass(isActive, layout !== null),
         )}
       >
         <div className="relative flex min-w-0 items-center gap-2">
@@ -207,16 +279,8 @@ function ThreadRow({
             <span className="absolute left-1 top-1/2 h-px w-2 -translate-x-3 -translate-y-1/2 bg-sidebar-border" />
           ) : null}
           <span
-            className={cn(
-              "h-2 w-2 shrink-0 rounded-full",
-              tone === "blocked"
-                ? "bg-destructive"
-                : tone === "working"
-                  ? "bg-emerald-500"
-                  : thread.isUnread
-                    ? "bg-timeline-accent"
-                    : "bg-muted-foreground/35",
-            )}
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={statusDotStyle(tone, thread.isUnread)}
           />
           <span
             className={cn(
@@ -451,21 +515,7 @@ function BranchCell({ label }: { label: string }) {
   );
 }
 
-function rowClass(tone: RowTone, isActive: boolean, isSplitOpen: boolean) {
-  if (tone === "blocked") {
-    return cn(
-      "border-destructive/35 bg-destructive/10 hover:bg-destructive/15",
-      isActive && "bg-destructive/15",
-    );
-  }
-
-  if (tone === "working") {
-    return cn(
-      "border-emerald-500/25 bg-emerald-500/10 hover:bg-emerald-500/15",
-      isActive && "bg-emerald-500/15",
-    );
-  }
-
+function idleRowClass(isActive: boolean, isSplitOpen: boolean) {
   return cn(
     "border-transparent",
     isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/60",
@@ -473,26 +523,63 @@ function rowClass(tone: RowTone, isActive: boolean, isSplitOpen: boolean) {
   );
 }
 
-function rowTone(thread: PluginSidebarThread): RowTone {
-  const data = thread as ThreadWithOptionalMetadata;
-  const indicator = String(data.indicator ?? "none");
-  const status = String(data.status ?? data.runtime?.displayStatus ?? "").toLowerCase();
-  const indicatorLabel = String(data.indicatorLabel ?? "").toLowerCase();
+/** Plugin Tailwind often misses host tokens — inline color-mix matches DiffCell. */
+function rowStyle(tone: RowTone, isActive: boolean): CSSProperties {
+  const fill = isActive ? 15 : 10;
+  if (tone === "working") {
+    return {
+      backgroundColor: `color-mix(in oklab, var(--color-emerald-500) ${fill}%, transparent)`,
+      borderColor: "color-mix(in oklab, var(--color-emerald-500) 25%, transparent)",
+    };
+  }
+  if (tone === "blocked") {
+    return {
+      backgroundColor: `color-mix(in oklab, var(--destructive) ${fill}%, transparent)`,
+      borderColor: "color-mix(in oklab, var(--destructive) 35%, transparent)",
+    };
+  }
+  return {};
+}
+
+function statusDotStyle(tone: RowTone, isUnread: boolean): CSSProperties {
+  if (tone === "blocked") {
+    return { backgroundColor: "var(--destructive)" };
+  }
+  if (tone === "working") {
+    return { backgroundColor: "var(--color-emerald-500)" };
+  }
+  if (isUnread) {
+    return { backgroundColor: "var(--timeline-accent)" };
+  }
+  return {
+    backgroundColor:
+      "color-mix(in oklab, var(--muted-foreground) 35%, transparent)",
+  };
+}
+
+function rowTone(
+  thread: PluginSidebarThread,
+  displayStatus?: string | null,
+): RowTone {
+  const { indicator, indicatorLabel, hasPendingInteraction, activity } = thread;
 
   if (
     indicator === "waiting-for-input" ||
     indicator === "unread-error" ||
-    status === "error" ||
-    status === "failed" ||
-    data.hasPendingInteraction === true
+    hasPendingInteraction ||
+    displayStatus === "error"
   ) {
     return "blocked";
   }
 
+  if (isLiveDisplayStatus(displayStatus)) {
+    return "working";
+  }
+
   if (
-    hasActiveActivity(data.activity) ||
+    hasActiveActivity(activity) ||
     /running|working|active|stopping|agent|workflow|command|plan|goal/.test(
-      indicatorLabel,
+      (indicatorLabel ?? "").toLowerCase(),
     ) ||
     indicator === "runtime" ||
     indicator === "workflow" ||
@@ -500,10 +587,7 @@ function rowTone(thread: PluginSidebarThread): RowTone {
     indicator === "background-command" ||
     indicator === "plan-mode" ||
     indicator === "goal" ||
-    indicator === "working-draft" ||
-    status === "active" ||
-    status === "running" ||
-    status === "stopping"
+    indicator === "working-draft"
   ) {
     return "working";
   }
@@ -511,8 +595,43 @@ function rowTone(thread: PluginSidebarThread): RowTone {
   return "idle";
 }
 
+function isLiveDisplayStatus(displayStatus?: string | null): boolean {
+  return (
+    typeof displayStatus === "string" &&
+    LIVE_DISPLAY_STATUSES.has(displayStatus)
+  );
+}
+
+function shouldRefreshDisplayStatuses(
+  payload: unknown,
+  visibleThreadIds: ReadonlySet<string>,
+): boolean {
+  const event = objectValue(payload);
+  if (event === null) return false;
+
+  const changes = event.changes;
+  if (
+    !Array.isArray(changes) ||
+    !changes.some((change) => change === "status-changed")
+  ) {
+    return false;
+  }
+
+  const threadId = event.id;
+  if (typeof threadId !== "string") return false;
+  if (visibleThreadIds.size === 0) return false;
+  return visibleThreadIds.has(threadId);
+}
+
 function hasActiveActivity(activity: PluginSidebarThread["activity"]): boolean {
-  return Object.values(activity).some((value) => value > 0);
+  if (activity == null) return false;
+  return (
+    activity.workflows > 0 ||
+    activity.backgroundAgents > 0 ||
+    activity.backgroundCommands > 0 ||
+    activity.planMode > 0 ||
+    activity.goals > 0
+  );
 }
 
 type DiffStat = {

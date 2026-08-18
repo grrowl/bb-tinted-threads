@@ -20,6 +20,12 @@ export const rpcContract = defineRpcContract({
       ),
     }),
   },
+  threadDisplayStatuses: {
+    input: z.object({ threadIds: z.array(z.string()).max(120) }).strict(),
+    output: z.object({
+      statuses: z.record(z.string(), z.string().nullable()),
+    }),
+  },
 });
 
 export default function plugin(bb: BbPluginApi) {
@@ -78,6 +84,23 @@ export default function plugin(bb: BbPluginApi) {
         }),
       );
       return { models: Object.fromEntries(entries) };
+    },
+    async threadDisplayStatuses({ threadIds }) {
+      const uniqueIds = [...new Set(threadIds)];
+      const entries = await Promise.all(
+        uniqueIds.map(async (threadId) => {
+          try {
+            const thread = await bb.sdk.threads.get({ threadId });
+            return [threadId, thread.runtime?.displayStatus ?? null];
+          } catch (error) {
+            bb.log.debug(
+              `could not read status for ${threadId}: ${String(error)}`,
+            );
+            return [threadId, null];
+          }
+        }),
+      );
+      return { statuses: Object.fromEntries(entries) };
     },
   });
 }

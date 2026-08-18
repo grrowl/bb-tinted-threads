@@ -15,7 +15,6 @@ import type { rpcContract } from "./server";
 type ThreadWithOptionalMetadata = PluginSidebarThread &
   Record<string, unknown> & {
     environment?: Record<string, unknown> | null;
-    activity?: Record<string, unknown>;
     runtime?: Record<string, unknown> | null;
   };
 
@@ -428,10 +427,16 @@ function DiffCell({ diff }: { diff: DiffStat }) {
       aria-label={`+${diff.additions} -${diff.deletions}`}
       className="flex shrink-0 items-center gap-0.5 font-mono tabular-nums"
     >
-      <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-0.5 text-emerald-600">
+      <span
+        className="rounded border border-emerald-500/25 bg-emerald-500/10 px-0.5 font-medium"
+        style={{ color: "var(--color-emerald-500)" }}
+      >
         +{diff.additions}
       </span>
-      <span className="rounded border border-destructive/25 bg-destructive/10 px-0.5 text-destructive">
+      <span
+        className="rounded border border-destructive/25 bg-destructive/10 px-0.5 font-medium"
+        style={{ color: "var(--destructive)" }}
+      >
         -{diff.deletions}
       </span>
     </span>
@@ -471,7 +476,8 @@ function rowClass(tone: RowTone, isActive: boolean, isSplitOpen: boolean) {
 function rowTone(thread: PluginSidebarThread): RowTone {
   const data = thread as ThreadWithOptionalMetadata;
   const indicator = String(data.indicator ?? "none");
-  const status = String(data.status ?? data.runtime?.displayStatus ?? "");
+  const status = String(data.status ?? data.runtime?.displayStatus ?? "").toLowerCase();
+  const indicatorLabel = String(data.indicatorLabel ?? "").toLowerCase();
 
   if (
     indicator === "waiting-for-input" ||
@@ -483,22 +489,11 @@ function rowTone(thread: PluginSidebarThread): RowTone {
     return "blocked";
   }
 
-  const activity = data.activity ?? {};
-  const hasActiveWork = [
-    activity.workflows,
-    activity.backgroundAgents,
-    activity.backgroundCommands,
-    activity.goals,
-    activity.planModes,
-    activity.activeWorkflowCount,
-    activity.activeBackgroundAgentCount,
-    activity.activeBackgroundCommandCount,
-    activity.activeGoalCount,
-    activity.activePlanModeCount,
-  ].some((value) => typeof value === "number" && value > 0);
-
   if (
-    hasActiveWork ||
+    hasActiveActivity(data.activity) ||
+    /running|working|active|stopping|agent|workflow|command|plan|goal/.test(
+      indicatorLabel,
+    ) ||
     indicator === "runtime" ||
     indicator === "workflow" ||
     indicator === "background-agent" ||
@@ -514,6 +509,10 @@ function rowTone(thread: PluginSidebarThread): RowTone {
   }
 
   return "idle";
+}
+
+function hasActiveActivity(activity: PluginSidebarThread["activity"]): boolean {
+  return Object.values(activity).some((value) => value > 0);
 }
 
 type DiffStat = {

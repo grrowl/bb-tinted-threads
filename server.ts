@@ -31,6 +31,57 @@ export const rpcContract = defineRpcContract({
 export default function plugin(bb: BbPluginApi) {
   bb.log.info("loaded tinted sidebar");
 
+  bb.settings.define({
+    groupBy: {
+      type: "select",
+      label: "Group by",
+      description: "Project headers or one flat list.",
+      options: ["project", "none"],
+      default: "project",
+    },
+    pinnedPlacement: {
+      type: "select",
+      label: "Pinned threads",
+      description: "Keep pins inside each group or in a section at the top.",
+      options: ["in-group", "at-top"],
+      default: "in-group",
+    },
+    sortBy: {
+      type: "select",
+      label: "Sort by",
+      options: ["created", "updated", "attention", "alpha"],
+      default: "created",
+    },
+    showArchivedChildren: {
+      type: "boolean",
+      label: "Show archived child threads",
+      description: "Show archived sub-threads nested under a visible parent.",
+      default: false,
+    },
+    showModel: {
+      type: "boolean",
+      label: "Show provider and model",
+      default: true,
+    },
+    showDiff: {
+      type: "boolean",
+      label: "Show uncommitted diff",
+      default: false,
+    },
+    showPullRequest: {
+      type: "boolean",
+      label: "Show pull request status",
+      default: true,
+    },
+    workspaceLabel: {
+      type: "select",
+      label: "Workspace label",
+      description: "Branch, worktree folder, host name, or smart fallback.",
+      options: ["branch", "worktree", "host", "smart"],
+      default: "smart",
+    },
+  });
+
   bb.rpc.register(rpcContract, {
     async gitStats({ environmentIds }) {
       const uniqueIds = [...new Set(environmentIds)];

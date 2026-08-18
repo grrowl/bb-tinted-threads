@@ -6,39 +6,15 @@ import { HermesIcon } from "@/hermes-icon";
 import {
   modelLabel,
   parseDiffStat,
-  pullRequestAttentionLabel,
   pullRequestBadgeLabel,
   workspaceLabel,
   type ThreadModelMetadata,
 } from "@/lib/subtitle";
+import { pullRequestStatusDescription } from "@/lib/pull-request";
 import type { ListSettings } from "@/lib/settings";
+import type { PullRequestDetail } from "@/lib/pull-request";
 import { PullRequestCell } from "@/components/pull-request-cell";
-
-function DiffCell({
-  diff,
-}: {
-  diff: { additions: number; deletions: number };
-}) {
-  return (
-    <span
-      aria-label={`+${diff.additions} -${diff.deletions}`}
-      className="flex shrink-0 items-center gap-0.5 font-mono tabular-nums"
-    >
-      <span
-        className="rounded border border-emerald-500/25 bg-emerald-500/10 px-0.5 font-medium"
-        style={{ color: "var(--color-emerald-500)" }}
-      >
-        +{diff.additions}
-      </span>
-      <span
-        className="rounded border border-destructive/25 bg-destructive/10 px-0.5 font-medium"
-        style={{ color: "var(--destructive)" }}
-      >
-        -{diff.deletions}
-      </span>
-    </span>
-  );
-}
+import { DiffStatPills } from "@/components/diff-stat-pills";
 
 function WorkspaceCell({ label }: { label: string }) {
   return (
@@ -160,6 +136,7 @@ export function buildSubtitleParts({
   gitStat,
   modelMetadata,
   pullRequest,
+  pullRequestDetail,
 }: {
   thread: PluginSidebarThread;
   settings: Pick<
@@ -169,18 +146,23 @@ export function buildSubtitleParts({
   gitStat: string | null | undefined;
   modelMetadata: ThreadModelMetadata | undefined;
   pullRequest: PluginSidebarPullRequest | null;
+  pullRequestDetail?: PullRequestDetail | null;
 }): string[] {
   const parts: string[] = [];
   if (settings.showModel) {
     parts.push(modelLabel(thread, modelMetadata));
   }
   if (settings.showPullRequest && pullRequest) {
-    const status = pullRequestAttentionLabel(pullRequest.attention);
+    parts.push(pullRequestBadgeLabel(pullRequest.number));
     parts.push(
-      status === "PR"
-        ? pullRequestBadgeLabel(pullRequest.number)
-        : `${pullRequestBadgeLabel(pullRequest.number)} ${status}`,
+      pullRequestStatusDescription(pullRequest.attention, pullRequestDetail),
     );
+    const branchDiff = pullRequestDetail?.branchDiff
+      ? parseDiffStat(pullRequestDetail.branchDiff)
+      : null;
+    if (branchDiff) {
+      parts.push(`+${branchDiff.additions} -${branchDiff.deletions}`);
+    }
   }
   const workspace = workspaceLabel(thread, settings.workspaceLabel);
   if (workspace) parts.push(workspace);
@@ -195,6 +177,7 @@ export function SubtitleRow({
   gitStat,
   modelMetadata,
   pullRequest,
+  pullRequestDetail,
 }: {
   thread: PluginSidebarThread;
   settings: Pick<
@@ -204,6 +187,7 @@ export function SubtitleRow({
   gitStat: string | null | undefined;
   modelMetadata: ThreadModelMetadata | undefined;
   pullRequest: PluginSidebarPullRequest | null;
+  pullRequestDetail?: PullRequestDetail | null;
 }) {
   const model = settings.showModel ? modelLabel(thread, modelMetadata) : null;
   const diff = settings.showDiff && gitStat ? parseDiffStat(gitStat) : null;
@@ -220,10 +204,13 @@ export function SubtitleRow({
         />
       ) : null}
       {settings.showPullRequest && pullRequest ? (
-        <PullRequestCell pullRequest={pullRequest} />
+        <PullRequestCell
+          pullRequest={pullRequest}
+          detail={pullRequestDetail}
+        />
       ) : null}
       {workspace ? <WorkspaceCell label={workspace} /> : null}
-      {settings.showDiff && diff ? <DiffCell diff={diff} /> : null}
+      {settings.showDiff && diff ? <DiffStatPills diff={diff} /> : null}
     </div>
   );
 }

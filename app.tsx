@@ -22,6 +22,7 @@ import {
 } from "@/lib/list-view";
 import { parseListSettings } from "@/lib/settings";
 import { type ThreadModelMetadata } from "@/lib/subtitle";
+import type { PullRequestDetail } from "@/lib/pull-request";
 import { threadTitle } from "@/lib/thread-title";
 import { cn } from "@/lib/utils";
 import type { rpcContract } from "./server";
@@ -62,6 +63,9 @@ function SidebarThreadList({
   );
 
   const [gitStats, setGitStats] = useState<Record<string, string | null>>({});
+  const [pullRequestDetails, setPullRequestDetails] = useState<
+    Record<string, PullRequestDetail | null>
+  >({});
   const [threadModels, setThreadModels] = useState<
     Record<string, ThreadModelMetadata>
   >({});
@@ -130,6 +134,38 @@ function SidebarThreadList({
       cancelled = true;
     };
   }, [rpc, settings.showDiff, visibleThreads]);
+
+  useEffect(() => {
+    if (!settings.showPullRequest) {
+      setPullRequestDetails({});
+      return;
+    }
+
+    const environmentIds = [
+      ...new Set(
+        visibleThreads
+          .map((thread) => thread.environment?.id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      ),
+    ];
+    if (environmentIds.length === 0) {
+      setPullRequestDetails({});
+      return;
+    }
+
+    let cancelled = false;
+    void rpc
+      .call("pullRequestDetails", { environmentIds })
+      .then(({ details }) => {
+        if (!cancelled) setPullRequestDetails(details);
+      })
+      .catch(() => {
+        if (!cancelled) setPullRequestDetails({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [rpc, settings.showPullRequest, visibleThreads]);
 
   useEffect(() => {
     if (!settings.showModel) {
@@ -201,6 +237,7 @@ function SidebarThreadList({
           activeThreadId={activeThreadId}
           settings={settings}
           gitStats={gitStats}
+          pullRequestDetails={pullRequestDetails}
           threadModels={threadModels}
           displayStatuses={displayStatuses}
           onNavigate={onNavigate}
@@ -237,6 +274,7 @@ function ListSectionView({
   activeThreadId,
   settings,
   gitStats,
+  pullRequestDetails,
   threadModels,
   displayStatuses,
   onNavigate,
@@ -245,6 +283,7 @@ function ListSectionView({
   activeThreadId: string | null;
   settings: ReturnType<typeof parseListSettings>;
   gitStats: Record<string, string | null>;
+  pullRequestDetails: Record<string, PullRequestDetail | null>;
   threadModels: Record<string, ThreadModelMetadata>;
   displayStatuses: Record<string, string | null>;
   onNavigate: () => void;
@@ -270,6 +309,11 @@ function ListSectionView({
                 ? gitStats[row.thread.environment.id]
                 : null
             }
+            pullRequestDetail={
+              row.thread.environment?.id
+                ? pullRequestDetails[row.thread.environment.id]
+                : null
+            }
             modelMetadata={threadModels[row.thread.id]}
             displayStatus={displayStatuses[row.thread.id]}
             onNavigate={onNavigate}
@@ -285,6 +329,7 @@ function ThreadRow({
   isActive,
   settings,
   gitStat,
+  pullRequestDetail,
   modelMetadata,
   displayStatus,
   onNavigate,
@@ -293,6 +338,7 @@ function ThreadRow({
   isActive: boolean;
   settings: ReturnType<typeof parseListSettings>;
   gitStat: string | null | undefined;
+  pullRequestDetail?: PullRequestDetail | null;
   modelMetadata: ThreadModelMetadata | undefined;
   displayStatus: string | null | undefined;
   onNavigate: () => void;
@@ -309,6 +355,7 @@ function ThreadRow({
     gitStat,
     modelMetadata,
     pullRequest,
+    pullRequestDetail,
   });
   const statusLabel = thread.indicatorLabel;
   const ariaLabel = [
@@ -342,22 +389,22 @@ function ThreadRow({
           ...rowStyle(tone, isActive, isArchivedChild),
         }}
         className={cn(
-          "group flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5 transition-colors",
+          "group flex flex-col gap-0.5 rounded-md border px-2.5 py-2 transition-colors",
           isArchivedChild && "opacity-60",
           tone === "idle" && idleRowClass(isActive, layout !== null),
         )}
       >
-        <div className="relative flex min-w-0 items-center gap-2 leading-none">
+        <div className="relative flex min-h-5 min-w-0 items-center gap-2">
           {depth > 0 ? (
             <span className="absolute left-1 top-1/2 h-px w-2 -translate-x-3 -translate-y-1/2 bg-sidebar-border" />
           ) : null}
           <span
-            className="h-2 w-2 shrink-0 rounded-full"
+            className="size-1.5 shrink-0 translate-y-px rounded-full"
             style={statusDotStyle(tone, thread.isUnread, isArchivedChild)}
           />
           <span
             className={cn(
-              "min-w-0 flex-1 truncate text-sm leading-none text-foreground",
+              "min-w-0 flex-1 truncate text-sm leading-tight text-foreground",
               thread.isUnread && !isArchivedChild && "font-medium",
             )}
           >
@@ -380,6 +427,7 @@ function ThreadRow({
           gitStat={gitStat}
           modelMetadata={modelMetadata}
           pullRequest={pullRequest}
+          pullRequestDetail={pullRequestDetail}
         />
       </a>
     </ThreadContextMenu>

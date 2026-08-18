@@ -26,6 +26,37 @@ export const rpcContract = defineRpcContract({
       statuses: z.record(z.string(), z.string().nullable()),
     }),
   },
+  pullRequestDetails: {
+    input: z.object({ environmentIds: z.array(z.string()).max(80) }).strict(),
+    output: z.object({
+      details: z.record(
+        z.string(),
+        z
+          .object({
+            checksState: z.enum([
+              "unknown",
+              "pending",
+              "passing",
+              "failing",
+              "no_checks",
+            ]),
+            checksFailed: z.number(),
+            checksPending: z.number(),
+            checksPassed: z.number(),
+            reviewState: z.enum([
+              "none",
+              "approved",
+              "changes_requested",
+              "review_required",
+              "review_requested",
+            ]),
+            branchDiff: z.string().nullable(),
+          })
+          .strict()
+          .nullable(),
+      ),
+    }),
+  },
 });
 
 export default function plugin(bb: BbPluginApi) {
@@ -152,6 +183,52 @@ export default function plugin(bb: BbPluginApi) {
         }),
       );
       return { statuses: Object.fromEntries(entries) };
+    },
+    async pullRequestDetails({ environmentIds }) {
+      const uniqueIds = [...new Set(environmentIds)];
+      const entries = await Promise.all(
+        uniqueIds.map(async (environmentId) => {
+          try {
+            const result = await bb.sdk.environments.pullRequest({ environmentId });
+            if (result.outcome !== "available") return [environmentId, null];
+
+            const pullRequest = result.pullRequest;
+            let branchDiff: string | null = null;
+            try {
+              const diffResult = await bb.sdk.environments.diffFiles({
+                environmentId,
+                target: "branch_committed",
+                mergeBaseBranch: pullRequest.baseRefName,
+              });
+              if (diffResult.outcome === "available") {
+                branchDiff = shortGitStat(diffResult.shortstat);
+              }
+            } catch (error) {
+              bb.log.debug(
+                `could not read branch diff for ${environmentId}: ${String(error)}`,
+              );
+            }
+
+            return [
+              environmentId,
+              {
+                checksState: pullRequest.checks.state,
+                checksFailed: pullRequest.checks.failedCount,
+                checksPending: pullRequest.checks.pendingCount,
+                checksPassed: pullRequest.checks.passedCount,
+                reviewState: pullRequest.review.state,
+                branchDiff,
+              },
+            ];
+          } catch (error) {
+            bb.log.debug(
+              `could not read pull request for ${environmentId}: ${String(error)}`,
+            );
+            return [environmentId, null];
+          }
+        }),
+      );
+      return { details: Object.fromEntries(entries) };
     },
   });
 }

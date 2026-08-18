@@ -10,7 +10,7 @@ opens a thread actions menu. Each row subtitle shows:
 
 - provider icon plus effective model label; Claude and Codex use provider
   glyphs, and other providers get a compact fallback icon
-- short uncommitted git stats as fixed `[+n]` and `[-n]` tokens
+- short uncommitted git stats as fixed `+n` and `-n` tokens
 - worktree, branch, or machine name, truncated aggressively
 
 ## Use

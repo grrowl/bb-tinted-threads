@@ -429,10 +429,10 @@ function DiffCell({ diff }: { diff: DiffStat }) {
       className="flex shrink-0 items-center gap-0.5 font-mono tabular-nums"
     >
       <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-0.5 text-emerald-600">
-        [+{diff.additions}]
+        +{diff.additions}
       </span>
       <span className="rounded border border-destructive/25 bg-destructive/10 px-0.5 text-destructive">
-        [-{diff.deletions}]
+        -{diff.deletions}
       </span>
     </span>
   );
@@ -576,7 +576,19 @@ function compactClaudeName(value: string, family: "Sonnet" | "Opus" | "Haiku") {
 
 function codexModelName(model: string | null): string {
   if (!model) return "GPT";
-  return readableModelName(model);
+  const normalized = shortModel(model).replace(/\[[^\]]+\]/g, "").trim();
+  const gptMatch = normalized.match(/^gpt[-_\s]*(.+)$/i);
+  if (gptMatch?.[1]) return compactCodexModelName(gptMatch[1]);
+  return readableModelName(normalized);
+}
+
+function compactCodexModelName(model: string): string {
+  const parts = model
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part, index) => (index === 0 ? part : titleCaseToken(part)));
+
+  return parts.length > 1 ? `${parts[0]}-${parts.slice(1).join("-")}` : parts[0];
 }
 
 function readableModelName(model: string): string {
@@ -747,8 +759,12 @@ function labelize(value: string): string {
   return value
     .split(/[-_\s]+/)
     .filter(Boolean)
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .map(titleCaseToken)
     .join(" ");
+}
+
+function titleCaseToken(part: string): string {
+  return part.slice(0, 1).toUpperCase() + part.slice(1);
 }
 
 function providerInitial(providerId: string): string {

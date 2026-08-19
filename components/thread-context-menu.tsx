@@ -36,15 +36,15 @@ function MenuSeparator() {
 
 export function ThreadContextMenu({
   thread,
-  title,
   pullRequest,
   onNavigate,
+  onRename,
   children,
 }: {
   thread: PluginSidebarThread;
-  title: string;
   pullRequest: PluginSidebarPullRequest | null;
   onNavigate: () => void;
+  onRename: () => void;
   children: ReactNode;
 }) {
   const actions = useSidebarThreadActions();
@@ -98,14 +98,8 @@ export function ThreadContextMenu({
               {thread.isUnread ? "Mark read" : "Mark unread"}
             </MenuItem>
             <MenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                window.setTimeout(() => {
-                  const next = window.prompt("Rename thread", title);
-                  if (next && next.trim() && next.trim() !== title) {
-                    void actions.rename(thread.id, next.trim());
-                  }
-                }, 0);
+              onSelect={() => {
+                window.setTimeout(onRename, 0);
               }}
             >
               Rename

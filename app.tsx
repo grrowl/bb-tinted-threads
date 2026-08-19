@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from "react";
 import {
   definePluginApp,
   experimental_useSidebarThreadActions as useSidebarThreadActions,
@@ -347,8 +354,35 @@ function ThreadRow({
   const actions = useSidebarThreadActions();
   const { pullRequest } = useSidebarThreadPullRequest(thread.id);
   const { splitProps, layout } = useSidebarThreadSplit(thread.id);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const tone = isArchivedChild ? "idle" : rowTone(thread, displayStatus);
   const title = threadTitle(thread);
+
+  useEffect(() => {
+    if (!isRenaming) return;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [isRenaming]);
+
+  function commitRename(value: string) {
+    const next = value.trim();
+    setIsRenaming(false);
+    if (next && next !== title) {
+      void actions.rename(thread.id, next);
+    }
+  }
+
+  function handleRenameKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitRename(event.currentTarget.value);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setIsRenaming(false);
+    }
+  }
   const subtitleParts = buildSubtitleParts({
     thread,
     settings,
@@ -369,9 +403,9 @@ function ThreadRow({
   return (
     <ThreadContextMenu
       thread={thread}
-      title={title}
       pullRequest={pullRequest}
       onNavigate={onNavigate}
+      onRename={() => setIsRenaming(true)}
     >
       <a
         data-sidebar-thread-shortcut-target=""
@@ -381,6 +415,7 @@ function ThreadRow({
         {...splitProps}
         onClick={(event) => {
           event.preventDefault();
+          if (isRenaming) return;
           actions.open(thread.id, { split: event.metaKey || event.ctrlKey });
           onNavigate();
         }}
@@ -402,14 +437,27 @@ function ThreadRow({
             className="size-1.5 shrink-0 translate-y-px rounded-full"
             style={statusDotStyle(tone, thread.isUnread, isArchivedChild)}
           />
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate text-sm leading-tight text-foreground",
-              thread.isUnread && !isArchivedChild && "font-medium",
-            )}
-          >
-            {title}
-          </span>
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              defaultValue={title}
+              aria-label="Rename thread"
+              className="min-w-0 flex-1 rounded border border-border bg-background px-1 py-0 text-sm leading-tight text-foreground outline-none ring-1 ring-ring"
+              onBlur={(event) => commitRename(event.currentTarget.value)}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={handleRenameKeyDown}
+              onMouseDown={(event) => event.stopPropagation()}
+            />
+          ) : (
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate text-sm leading-tight text-foreground",
+                thread.isUnread && !isArchivedChild && "font-medium",
+              )}
+            >
+              {title}
+            </span>
+          )}
           {thread.isPinned ? (
             <span className="shrink-0 text-2xs font-medium text-muted-foreground">
               pinned

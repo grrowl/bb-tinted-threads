@@ -6,10 +6,10 @@ import { HermesIcon } from "@/hermes-icon";
 import {
   modelLabel,
   parseDiffStat,
-  pullRequestBadgeLabel,
   workspaceLabel,
   type ThreadModelMetadata,
 } from "@/lib/subtitle";
+import { pullRequestAttentionMeta } from "@/lib/pull-request-attention";
 import { pullRequestStatusDescription } from "@/lib/pull-request";
 import type { ListSettings } from "@/lib/settings";
 import type { PullRequestDetail } from "@/lib/pull-request";
@@ -153,7 +153,7 @@ export function buildSubtitleParts({
     parts.push(modelLabel(thread, modelMetadata));
   }
   if (settings.showPullRequest && pullRequest) {
-    parts.push(pullRequestBadgeLabel(pullRequest.number));
+    parts.push(pullRequestAttentionMeta(pullRequest.attention).label);
     parts.push(
       pullRequestStatusDescription(pullRequest.attention, pullRequestDetail),
     );

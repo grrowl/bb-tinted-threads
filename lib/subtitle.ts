@@ -51,6 +51,8 @@ export function parseDiffStat(value: string | null | undefined): DiffStat | null
 export type ThreadModelMetadata = {
   providerId: string;
   model: string | null;
+  displayName: string | null;
+  status: "known" | "unknown";
 };
 
 function shortModel(model: string): string {
@@ -69,65 +71,46 @@ function labelize(value: string): string {
     .join(" ");
 }
 
-function compactClaudeName(value: string, family: "Sonnet" | "Opus" | "Haiku") {
-  const major = value.match(/\b([3-9])(?:[.-]\d)?\b/)?.[1];
-  return major ? `${family} ${major}` : family;
-}
-
-function compactCodexModelName(model: string): string {
-  const parts = model
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part, index) => (index === 0 ? part : titleCaseToken(part)));
-
-  return parts.length > 1 ? `${parts[0]}-${parts.slice(1).join("-")}` : parts[0];
-}
-
 function readableModelName(model: string): string {
   return shortModel(model)
     .replace(/\[[^\]]+\]/g, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\b(gpt|o)(\d)/gi, (_, family: string, version: string) =>
+    .replace(/\b(gpt|o)[-_\s]?(\d)/gi, (_, family: string, version: string) =>
       `${family.toUpperCase()}-${version}`,
     )
+    .replace(/[-_]+/g, " ")
     .replace(/\b([a-z])/g, (letter) => letter.toUpperCase())
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function claudeModelName(model: string | null): string {
-  if (!model) return "Sonnet 5";
-  const normalized = shortModel(model).replace(/^claude-?/i, "");
-  if (/sonnet/i.test(normalized)) return compactClaudeName(normalized, "Sonnet");
-  if (/opus/i.test(normalized)) return compactClaudeName(normalized, "Opus");
-  if (/haiku/i.test(normalized)) return compactClaudeName(normalized, "Haiku");
-  return normalized;
-}
-
-function codexModelName(model: string | null): string {
-  if (!model) return "GPT";
-  const normalized = shortModel(model).replace(/\[[^\]]+\]/g, "").trim();
-  const gptMatch = normalized.match(/^gpt[-_\s]*(.+)$/i);
-  if (gptMatch?.[1]) return compactCodexModelName(gptMatch[1]);
-  return readableModelName(normalized);
+function compactProviderModelName(providerId: string, value: string): string {
+  if (providerId === "codex") {
+    return value.replace(/^GPT-/i, "");
+  }
+  if (providerId === "claude-code") {
+    return value.replace(/\s+\(1M\)$/i, "");
+  }
+  if (providerId === "acp-opencode") {
+    return value.replace(/^OpenCode\s+/i, "");
+  }
+  return value;
 }
 
 export function modelLabel(
   thread: PluginSidebarThread,
   modelMetadata?: ThreadModelMetadata,
 ): string {
-  const providerId = modelMetadata?.providerId ?? thread.providerId;
-  const model = modelMetadata?.model ?? null;
-
-  if (providerId === "claude-code") {
-    return claudeModelName(model);
+  // The sidebar DTO has no execution model. Until the RPC resolves, and when
+  // BB cannot resolve a historic execution plan, state that uncertainty rather
+  // than guessing a current provider default.
+  if (!modelMetadata) return "Loading…";
+  if (modelMetadata.status === "unknown" || !modelMetadata.model) {
+    return "Unknown model";
   }
-
-  if (providerId === "codex") {
-    return codexModelName(model);
-  }
-
-  return model ? readableModelName(model) : labelize(String(providerId));
+  return compactProviderModelName(
+    modelMetadata.providerId,
+    modelMetadata.displayName ?? readableModelName(modelMetadata.model),
+  );
 }
 
 export function pullRequestAttentionLabel(

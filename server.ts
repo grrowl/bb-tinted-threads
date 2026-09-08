@@ -45,6 +45,8 @@ export const rpcContract = defineRpcContract({
           .object({
             providerId: z.string(),
             model: z.string().nullable(),
+            displayName: z.string().nullable(),
+            status: z.enum(["known", "unknown"]),
           })
           .strict(),
       ),
@@ -205,31 +207,65 @@ export default function plugin(bb: BbPluginApi) {
     },
     async threadModels({ threadIds }) {
       const uniqueIds = [...new Set(threadIds)];
-      const entries = await Promise.all(
+      const resolutions = await Promise.all(
         uniqueIds.map(async (threadId) => {
           try {
             const thread = await bb.sdk.threads.get({ threadId });
             const options = await bb.sdk.threads.defaultExecutionOptions({
               threadId,
             });
-            return [
-              threadId,
-              {
-                providerId: thread.providerId,
-                model: options?.model ?? null,
-              },
-            ];
+            return { threadId, thread, model: options?.model ?? null };
           } catch (error) {
             bb.log.debug(
               `could not read model for ${threadId}: ${String(error)}`,
             );
-            return [
-              threadId,
-              {
-                providerId: "unknown",
-                model: null,
-              },
-            ];
+            return { threadId, thread: null, model: null };
+          }
+        }),
+      );
+
+      const catalogs = new Map<string, Promise<Awaited<ReturnType<typeof bb.sdk.providers.models>>>>();
+      function modelsFor(providerId: string, environmentId: string | null) {
+        const key = `${environmentId ?? "primary"}:${providerId}`;
+        let catalog = catalogs.get(key);
+        if (!catalog) {
+          catalog = bb.sdk.providers.models(
+            environmentId ? { environmentId, providerId } : { providerId },
+          );
+          catalogs.set(key, catalog);
+        }
+        return catalog;
+      }
+
+      const entries = await Promise.all(
+        resolutions.map(async ({ threadId, thread, model }) => {
+          if (!thread || !model) {
+            return [threadId, {
+              providerId: thread?.providerId ?? "unknown",
+              model: null,
+              displayName: null,
+              status: "unknown" as const,
+            }];
+          }
+          try {
+            const catalog = await modelsFor(thread.providerId, thread.environmentId);
+            const entry = catalog.models.find(
+              (candidate) => candidate.model === model || candidate.id === model,
+            );
+            return [threadId, {
+              providerId: thread.providerId,
+              model,
+              displayName: entry?.displayName ?? null,
+              status: "known" as const,
+            }];
+          } catch (error) {
+            bb.log.debug(`could not read model catalog for ${threadId}: ${String(error)}`);
+            return [threadId, {
+              providerId: thread.providerId,
+              model,
+              displayName: null,
+              status: "known" as const,
+            }];
           }
         }),
       );

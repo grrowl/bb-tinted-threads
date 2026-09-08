@@ -79,6 +79,15 @@ const LIVE_DISPLAY_STATUSES = new Set([
 ]);
 
 const STATUS_REFRESH_DEBOUNCE_MS = 150;
+const THREAD_MODEL_BATCH_SIZE = 120;
+
+function batches<T>(items: readonly T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    result.push(items.slice(index, index + size));
+  }
+  return result;
+}
 
 function SidebarThreadList({
   activeThreadId,
@@ -158,6 +167,10 @@ function SidebarThreadList({
   const visibleThreads = useMemo(
     () => filterVisibleThreads(threads, settings, searchQuery),
     [searchQuery, settings, threads],
+  );
+  const visibleThreadIdsKey = useMemo(
+    () => visibleThreads.map((thread) => thread.id).sort().join(","),
+    [visibleThreads],
   );
 
   const [gitStats, setGitStats] = useState<Record<string, string | null>>({});
@@ -328,17 +341,43 @@ function SidebarThreadList({
       return;
     }
 
-    const threadIds = visibleThreads.map((thread) => thread.id);
+    const threadIds = visibleThreadIdsKey ? visibleThreadIdsKey.split(",") : [];
     if (threadIds.length === 0) {
       setThreadModels({});
       return;
     }
 
     let cancelled = false;
-    void rpc
-      .call("threadModels", { threadIds })
-      .then(({ models }) => {
-        if (!cancelled) setThreadModels(models);
+    void Promise.all(
+      batches(threadIds, THREAD_MODEL_BATCH_SIZE).map((ids) =>
+        rpc.call("threadModels", { threadIds: ids }),
+      ),
+    )
+      .then((responses) => {
+        if (!cancelled) {
+          const models = responses.reduce<Record<string, ThreadModelMetadata>>(
+            (all, response) => ({
+              ...all,
+              ...(response.models as Record<string, ThreadModelMetadata>),
+            }),
+            {},
+          );
+          setThreadModels((previous) =>
+            Object.fromEntries(
+              Object.entries(models).map(([threadId, metadata]) => {
+                const prior = previous[threadId];
+                // A temporary inability to resolve historic execution options
+                // must not erase the last verified model for this same row.
+                return [
+                  threadId,
+                  metadata.status === "unknown" && prior?.status === "known"
+                    ? prior
+                    : metadata,
+                ];
+              }),
+            ),
+          );
+        }
       })
       .catch(() => {
         // Keep the last good model labels on transient RPC failure.
@@ -346,7 +385,7 @@ function SidebarThreadList({
     return () => {
       cancelled = true;
     };
-  }, [rpc, settings.showModel, visibleThreads]);
+  }, [rpc, settings.showModel, visibleThreadIdsKey]);
 
   useEffect(() => {
     const threadIds = visibleThreads.map((thread) => thread.id);

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
-import { COLLAPSED_THREADS_CHANNEL, type rpcContract } from "@/server";
+import { COLLAPSED_THREADS_CHANNEL } from "@/lib/channels";
+import type { rpcContract } from "@/server";
 
 export interface CollapsedThreadsApi {
   /** Thread ids whose children are collapsed. */

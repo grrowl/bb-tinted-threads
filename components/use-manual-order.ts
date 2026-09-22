@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
 import { buildOrderRank, orderKey } from "@/lib/manual-order";
-import { MANUAL_ORDER_CHANNEL, type rpcContract } from "@/server";
+import { MANUAL_ORDER_CHANNEL } from "@/lib/channels";
+import type { rpcContract } from "@/server";
 
 export interface ManualOrderApi {
   /** Thread id → slot in the saved manual order, for the sort comparator. */

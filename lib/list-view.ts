@@ -1,6 +1,7 @@
 import type { PluginSidebarProject, PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { createListComparator } from "./sort";
 import type { ListSettings } from "./settings";
+import { workspaceLabel } from "./subtitle";
 import { threadTitle } from "./thread-title";
 
 export type ThreadRowModel = {
@@ -23,6 +24,23 @@ export type ListSection =
       kind: "project";
       projectId: string;
       projectName: string;
+      rows: ThreadRowModel[];
+    }
+  | {
+      kind: "environment";
+      environmentId: string;
+      projectName: string;
+      environmentName: string;
+      rows: ThreadRowModel[];
+    }
+  | {
+      /**
+       * Environments with a single thread, plus threads with no environment,
+       * folded into one section so they do not each spend a header on one row.
+       * Each root row is captioned with its project and environment instead.
+       */
+      kind: "environment-misc";
+      title: string | null;
       rows: ThreadRowModel[];
     }
   | {
@@ -202,6 +220,91 @@ function projectThreadGroups(
   }));
 }
 
+/**
+ * Label for a thread's environment. Uses the same label mode as the row
+ * subtitle so headers read the way the rows already do, falling back to the
+ * smart chain (branch, worktree, host) when that mode has nothing to show.
+ */
+export function environmentLabel(
+  thread: PluginSidebarThread,
+  labelMode: ListSettings["workspaceLabel"],
+): string | null {
+  if (!thread.environment) return null;
+  return (
+    workspaceLabel(thread, labelMode) ??
+    workspaceLabel(thread, "smart") ??
+    thread.environment.id
+  );
+}
+
+/** "Repo · env" caption for a root row in a cross-environment section. */
+export function environmentCaption(
+  thread: PluginSidebarThread,
+  projectName: string | null,
+  labelMode: ListSettings["workspaceLabel"],
+): string | null {
+  const parts = [projectName, environmentLabel(thread, labelMode)].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+function environmentThreadGroups(
+  threads: readonly PluginSidebarThread[],
+  projectNameById: ReadonlyMap<string, string>,
+  labelMode: ListSettings["workspaceLabel"],
+  compareThreads: (
+    left: PluginSidebarThread,
+    right: PluginSidebarThread,
+  ) => number,
+  collapsedIds?: ReadonlySet<string>,
+): ListSection[] {
+  const threadsByEnvironment = new Map<string, PluginSidebarThread[]>();
+  const misc: PluginSidebarThread[] = [];
+
+  for (const thread of threads) {
+    const environmentId = thread.environment?.id;
+    if (!environmentId) {
+      misc.push(thread);
+      continue;
+    }
+    const group = threadsByEnvironment.get(environmentId) ?? [];
+    group.push(thread);
+    threadsByEnvironment.set(environmentId, group);
+  }
+
+  const sections: ListSection[] = [];
+  for (const [environmentId, group] of threadsByEnvironment) {
+    if (group.length < 2) {
+      misc.push(...group);
+      continue;
+    }
+    const lead = group[0]!;
+    sections.push({
+      kind: "environment",
+      environmentId,
+      projectName: projectNameById.get(lead.projectId) ?? lead.projectId,
+      environmentName: environmentLabel(lead, labelMode) ?? environmentId,
+      rows: nestedThreadRows(group, compareThreads, collapsedIds),
+    });
+  }
+  if (misc.length > 0) {
+    sections.push({
+      kind: "environment-misc",
+      title: sections.length > 0 ? "Threads" : null,
+      rows: nestedThreadRows(misc, compareThreads, collapsedIds),
+    });
+  }
+
+  // Order sections the way rows are ordered: by each section's top thread,
+  // so under attention sort the environment that needs you surfaces first.
+  return sections
+    .filter((section) => section.rows.length > 0)
+    .sort((left, right) =>
+      compareThreads(left.rows[0]!.thread, right.rows[0]!.thread),
+    );
+}
+
 export function buildListSections(
   threads: readonly PluginSidebarThread[],
   projects: readonly PluginSidebarProject[],
@@ -244,6 +347,16 @@ export function buildListSections(
           collapsedIds,
         ),
       );
+    } else if (settings.groupBy === "environment") {
+      sections.push(
+        ...environmentThreadGroups(
+          unpinned,
+          projectNameById,
+          settings.workspaceLabel,
+          compareThreads,
+          collapsedIds,
+        ),
+      );
     } else if (unpinned.length > 0) {
       sections.push({
         kind: "flat",
@@ -263,6 +376,16 @@ export function buildListSections(
       compareThreads,
       collapsedIds,
     ).filter((section) => section.rows.length > 0);
+  }
+
+  if (settings.groupBy === "environment") {
+    return environmentThreadGroups(
+      visible,
+      projectNameById,
+      settings.workspaceLabel,
+      compareThreads,
+      collapsedIds,
+    );
   }
 
   const rows = nestedThreadRows(visible, compareThreads, collapsedIds);

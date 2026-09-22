@@ -5,7 +5,7 @@ A bb plugin that contributes a replacement sidebar thread list named
 
 ![Tinted Threads sidebar showing active, blocked, and idle thread rows](docs/screenshot.png)
 
-Rows group by project (or flat), use a red hue when a thread is blocked on
+Rows group by project, by environment, or not at all (flat), use a red hue when a thread is blocked on
 input or failed, and use a subtle green hue while work is active. Sub-threads
 render directly beneath their parent with a simple depth indent. Right-clicking
 a row opens a thread actions menu, including **Open pull request** when one
@@ -27,7 +27,10 @@ main area still opens the thread in a split, as everywhere else.)
 
 Configure the list under **Extensions → Plugins → Tinted Threads**:
 
-- **Group by** — `project` or `none`
+- **Group by** — `project`, `environment`, or `none`. Environment sections are
+  headed "Repo · env" and ordered by their top thread under the active sort;
+  environments with a single thread (and threads with no environment) fold into
+  one **Threads** section, with each row captioned "Repo · env".
 - **Pinned threads** — keep pins inside each group (`in-group`) or in a
   cross-project section at the top (`at-top`)
 - **Sort by** — created, updated, attention, title, or manual (drag to arrange)

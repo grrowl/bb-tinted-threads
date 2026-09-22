@@ -1,4 +1,4 @@
-export type GroupBy = "project" | "none";
+export type GroupBy = "project" | "environment" | "none";
 export type PinnedPlacement = "in-group" | "at-top";
 export type SortBy = "created" | "updated" | "attention" | "alpha" | "manual";
 export type WorkspaceLabelMode = "branch" | "worktree" | "host" | "smart";
@@ -25,7 +25,7 @@ export const DEFAULT_LIST_SETTINGS: ListSettings = {
   workspaceLabel: "smart",
 };
 
-const GROUP_BY = new Set<GroupBy>(["project", "none"]);
+const GROUP_BY = new Set<GroupBy>(["project", "environment", "none"]);
 const PINNED_PLACEMENT = new Set<PinnedPlacement>(["in-group", "at-top"]);
 const SORT_BY = new Set<SortBy>([
   "created",

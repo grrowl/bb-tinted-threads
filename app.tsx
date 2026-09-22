@@ -38,6 +38,7 @@ import {
 import {
   buildListSections,
   dragScopeById,
+  environmentCaption,
   filterVisibleThreads,
   rootRowIds,
   totalRowCount,
@@ -453,6 +454,10 @@ function sectionKey(section: ListSection): string {
       return "pinned";
     case "project":
       return section.projectId;
+    case "environment":
+      return `env:${section.environmentId}`;
+    case "environment-misc":
+      return "env:misc";
     case "flat":
       return section.title ?? "flat";
   }
@@ -464,6 +469,10 @@ function sectionTitle(section: ListSection): string | null {
       return section.title;
     case "project":
       return section.projectName;
+    case "environment":
+      return `${section.projectName} · ${section.environmentName}`;
+    case "environment-misc":
+      return section.title;
     case "flat":
       return section.title;
   }
@@ -501,9 +510,24 @@ function ListSectionView({
   onNavigate: () => void;
 }) {
   const title = sectionTitle(section);
-  // Cross-project sections (the flat list, the pinned strip) lose the project
-  // header, so caption each root row with its project instead.
-  const showProjectLabel = section.kind !== "project";
+  // Sections without a project header (the flat list, the pinned strip, the
+  // folded environment section) caption each root row with its project. In
+  // the folded environment section the caption carries the environment too,
+  // since that is what the header would have said.
+  const rowCaption = (row: ThreadRowModel): string | null => {
+    if (row.depth > 0) return null;
+    const projectName = projectNameById.get(row.thread.projectId) ?? null;
+    switch (section.kind) {
+      case "project":
+      case "environment":
+        return null;
+      case "environment-misc":
+        return environmentCaption(row.thread, projectName, settings.workspaceLabel);
+      case "pinned":
+      case "flat":
+        return projectName;
+    }
+  };
 
   return (
     <section className="mb-3 last:mb-0">
@@ -532,11 +556,7 @@ function ListSectionView({
             }
             modelMetadata={threadModels[row.thread.id]}
             displayStatus={displayStatuses[row.thread.id]}
-            projectLabel={
-              showProjectLabel && row.depth === 0
-                ? (projectNameById.get(row.thread.projectId) ?? null)
-                : null
-            }
+            projectLabel={rowCaption(row)}
             reorderControls={isManual ? controlsFor(row.thread.id) : null}
             childTone={childToneByParent.get(row.thread.id) ?? null}
             childCounts={childCountsByParent.get(row.thread.id) ?? null}

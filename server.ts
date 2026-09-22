@@ -98,8 +98,8 @@ export default function plugin(bb: BbPluginApi) {
     groupBy: {
       type: "select",
       label: "Group by",
-      description: "Project headers or one flat list.",
-      options: ["project", "none"],
+      description: "Project headers, environment headers, or one flat list.",
+      options: ["project", "environment", "none"],
       default: "none",
     },
     pinnedPlacement: {

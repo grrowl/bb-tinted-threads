@@ -3,6 +3,8 @@ import { test } from "node:test";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import {
   buildListSections,
+  environmentCaption,
+  environmentLabel,
   flatThreadRows,
   nestedThreadRows,
   visibleThreadIds,
@@ -191,5 +193,123 @@ test("workspaceLabel smart prefers branch then worktree then host", () => {
       "smart",
     ),
     "mactom",
+  );
+});
+
+const ENV_A = {
+  id: "env_a",
+  name: "/worktrees/feature-a",
+  branchName: "feature/a",
+  workspaceDisplayKind: "managed-worktree" as const,
+};
+const ENV_B = {
+  id: "env_b",
+  name: "/worktrees/feature-b",
+  branchName: "feature/b",
+  workspaceDisplayKind: "managed-worktree" as const,
+};
+const ENV_C = {
+  id: "env_c",
+  name: "/worktrees/feature-c",
+  branchName: "feature/c",
+  workspaceDisplayKind: "managed-worktree" as const,
+};
+const PROJECTS = [
+  { id: "proj_a", name: "Alpha", isPersonal: false },
+  { id: "proj_b", name: "Beta", isPersonal: false },
+];
+
+test("buildListSections groups by environment, folding singletons into Other", () => {
+  const threads = [
+    thread({ id: "none-1", createdAt: 500 }),
+    thread({ id: "b-1", projectId: "proj_b", environment: ENV_B, createdAt: 400 }),
+    thread({ id: "a-1", environment: ENV_A, createdAt: 300 }),
+    thread({ id: "a-2", environment: ENV_A, createdAt: 200, parentThreadId: "a-1" }),
+    thread({ id: "b-2", projectId: "proj_b", environment: ENV_B, createdAt: 100 }),
+    thread({ id: "c-1", environment: ENV_C, createdAt: 50 }),
+  ];
+
+  const sections = buildListSections(
+    threads,
+    PROJECTS,
+    { ...DEFAULT_LIST_SETTINGS, groupBy: "environment", sortBy: "created" },
+    "",
+  );
+
+  assert.deepEqual(
+    sections.map((section) => {
+      const ids = section.rows.map((row) => row.thread.id);
+      return section.kind === "environment"
+        ? [section.projectName, section.environmentName, ids]
+        : [section.kind, section.kind === "environment-misc" ? section.title : null, ids];
+    }),
+    [
+      // Sections order by their top thread under the active sort (newest first).
+      ["environment-misc", "Threads", ["none-1", "c-1"]],
+      ["Beta", "feature/b", ["b-1", "b-2"]],
+      ["Alpha", "feature/a", ["a-1", "a-2"]],
+    ],
+  );
+  const envASection = sections[2];
+  assert.equal(envASection?.kind, "environment");
+  assert.equal(envASection?.rows[1]?.depth, 1);
+});
+
+test("buildListSections environment sections follow the row sort", () => {
+  const threads = [
+    thread({ id: "a-1", environment: ENV_A, createdAt: 400, latestAttentionAt: 10 }),
+    thread({ id: "a-2", environment: ENV_A, createdAt: 300, latestAttentionAt: 10 }),
+    thread({ id: "b-1", environment: ENV_B, createdAt: 200, latestAttentionAt: 900 }),
+    thread({ id: "b-2", environment: ENV_B, createdAt: 100, latestAttentionAt: 10 }),
+  ];
+  const order = (sortBy: "created" | "attention") =>
+    buildListSections(
+      threads,
+      PROJECTS,
+      { ...DEFAULT_LIST_SETTINGS, groupBy: "environment", sortBy },
+      "",
+    ).map((section) => (section.kind === "environment" ? section.environmentId : section.kind));
+  assert.deepEqual(order("created"), ["env_a", "env_b"]);
+  assert.deepEqual(order("attention"), ["env_b", "env_a"]);
+});
+
+test("environment labels and captions follow the workspace label mode", () => {
+  const full = thread({
+    id: "t1",
+    environment: {
+      id: "env_1",
+      name: "/worktrees/feature-x",
+      branchName: "feature/x",
+      workspaceDisplayKind: "managed-worktree",
+    },
+    host: { id: "host_1", name: "mactom" },
+  });
+  assert.equal(environmentLabel(full, "branch"), "feature/x");
+  assert.equal(environmentLabel(full, "worktree"), "feature-x");
+  assert.equal(environmentLabel(full, "host"), "mactom");
+  assert.equal(environmentCaption(full, "Alpha", "branch"), "Alpha · feature/x");
+  assert.equal(environmentCaption(thread({ id: "bare" }), "Alpha", "smart"), "Alpha");
+  assert.equal(environmentCaption(thread({ id: "bare" }), null, "smart"), null);
+});
+
+test("buildListSections pinned-at-top with environment grouping keeps pins in the strip", () => {
+  const sections = buildListSections(
+    [
+      thread({ id: "p1", environment: ENV_A, isPinned: true, createdAt: 300 }),
+      thread({ id: "u1", environment: ENV_A, createdAt: 200 }),
+      thread({ id: "u2", environment: ENV_A, createdAt: 150 }),
+      thread({ id: "u3", createdAt: 100 }),
+    ],
+    PROJECTS,
+    { ...DEFAULT_LIST_SETTINGS, groupBy: "environment", pinnedPlacement: "at-top", sortBy: "created" },
+    "",
+  );
+  assert.deepEqual(
+    sections.map((section) => [section.kind, section.rows.map((row) => row.thread.id)]),
+    [
+      ["pinned", ["p1"]],
+      ["environment", ["u1", "u2"]],
+      ["environment-misc", ["u3"]],
+    ],
   );
 });

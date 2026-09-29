@@ -77,6 +77,16 @@ const ROW_SPACING_STYLESHEET = `
 }
 `;
 
+// Tinted rows keep their tone in every state; selection deepens the fill and
+// edge rather than swapping to bb's grey. Parent rows are sticky, and bb paints
+// those with an opaque background-image (grey when selected) so scrolled rows
+// don't show through; tinted sticky rows get the same treatment in their tone.
+// Unread idle rows take a fainter blue tint (--tinted-strength scales every
+// fill and edge), so they read as quieter than working or blocked rows.
+const TONES =
+  '[data-tinted-tone="working"], [data-tinted-tone="blocked"], [data-tinted-tone="idle"][data-tinted-unread]';
+const mix = (percent: number) =>
+  `color-mix(in oklab, var(--tinted-tone) calc(${percent}% * var(--tinted-strength, 1)), transparent)`;
 const TINT_STYLESHEET = `
 [data-tinted-tone="working"] {
   --tinted-tone: var(--color-emerald-500);
@@ -84,19 +94,32 @@ const TINT_STYLESHEET = `
 [data-tinted-tone="blocked"] {
   --tinted-tone: var(--destructive);
 }
-[data-tinted-tone="working"],
-[data-tinted-tone="blocked"] {
-  background-color: color-mix(in oklab, var(--tinted-tone) 10%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tinted-tone) 28%, transparent);
+[data-tinted-tone="idle"][data-tinted-unread] {
+  --tinted-tone: var(--timeline-accent);
+  --tinted-strength: 0.6;
 }
-[data-tinted-tone="working"]:hover,
-[data-tinted-tone="blocked"]:hover {
-  background-color: color-mix(in oklab, var(--tinted-tone) 14%, transparent);
+:is(${TONES}) {
+  --tinted-fill: ${mix(10)};
+  background-color: var(--tinted-fill);
+  box-shadow: inset 0 0 0 1px ${mix(28)};
 }
-[data-tinted-tone="working"].bb-sidebar-selected-row,
-[data-tinted-tone="blocked"].bb-sidebar-selected-row {
-  background-color: color-mix(in oklab, var(--tinted-tone) 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tinted-tone) 40%, transparent);
+:is(${TONES}):is(:hover, .bb-sidebar-open-in-split-row) {
+  --tinted-fill: ${mix(14)};
+}
+:is(${TONES}).bb-sidebar-selected-row {
+  --tinted-fill: ${mix(18)};
+  box-shadow: inset 0 0 0 1px ${mix(40)};
+}
+[data-sidebar-sticky-stack] [data-sidebar-sticky-tier]:is(${TONES}) {
+  background-color: transparent;
+  background-image: linear-gradient(var(--tinted-fill), var(--tinted-fill)),
+    linear-gradient(var(--sidebar), var(--sidebar));
+}
+[data-tinted-unread-dot] {
+  background-color: var(--timeline-accent);
+}
+[data-tinted-unread] [data-tinted-title-stack] > :first-child {
+  font-weight: 500;
 }
 ${SUBTITLE_STYLESHEET}${DENSITY_STYLESHEET}${ROW_SPACING_STYLESHEET}`;
 
@@ -104,8 +127,13 @@ const STYLE_ELEMENT_ID = "bb-tinted-threads-styles";
 
 export function installTintStyles(): () => void {
   if (typeof document === "undefined") return () => {};
+  // A plugin reload can leave the previous build's element behind; refresh
+  // its rules so the new stylesheet takes effect without a page reload.
   const existing = document.getElementById(STYLE_ELEMENT_ID);
-  if (existing) return () => {};
+  if (existing) {
+    existing.textContent = TINT_STYLESHEET;
+    return () => {};
+  }
   const style = document.createElement("style");
   style.id = STYLE_ELEMENT_ID;
   style.textContent = TINT_STYLESHEET;

@@ -165,6 +165,7 @@ interface ThreadRowContainerArgs {
   stickyLevel?: number;
   style: CSSProperties;
   tintedTone: TintedTone;
+  tintedUnread: boolean;
 }
 
 const NEST_TARGET_STATE_CLASS: Record<SidebarNestTargetState, string> = {
@@ -201,10 +202,12 @@ function renderThreadRowContainer({
   stickyLevel,
   style,
   tintedTone,
+  tintedUnread,
 }: ThreadRowContainerArgs) {
   const containerProps = {
     "data-sidebar-rename-row": "",
     "data-tinted-tone": tintedTone,
+    "data-tinted-unread": tintedUnread ? "" : undefined,
     className,
     style,
     "data-sidebar-nest-target": nestTargetState ?? undefined,
@@ -776,6 +779,7 @@ function ThreadRowComponent({
     stickyLevel: parentOptions?.stickyLevel,
     style: rowStyle,
     tintedTone: tintedToneForThread(thread),
+    tintedUnread: threadStatus.hasUnreadSuccess || threadStatus.hasUnreadError,
   });
 
   return (

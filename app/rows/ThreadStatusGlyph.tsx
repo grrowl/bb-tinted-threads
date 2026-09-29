@@ -255,6 +255,7 @@ export function ThreadStatusGlyph({
     case "unread-success":
       return (
         <span
+          data-tinted-unread-dot=""
           className={SIDEBAR_SUCCESS_STATUS_DOT_CLASS}
           aria-label={getThreadListIndicatorLabel(kind) ?? undefined}
         />

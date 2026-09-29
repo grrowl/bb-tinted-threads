@@ -7,8 +7,11 @@
     "jsx": "react-jsx",
     "lib": [
       "ES2022",
-      "DOM"
+      "DOM",
+      "DOM.Iterable"
     ],
+    "noEmit": true,
+    "skipLibCheck": true,
     "types": [
       "node"
     ],
@@ -16,14 +19,16 @@
       "@/*": [
         "./*"
       ]
-    },
-    "noEmit": true,
-    "skipLibCheck": false
+    }
   },
   "include": [
     "server.ts",
+    "server.test.ts",
     "app.tsx",
-    "lib",
-    "components"
+    "app.test.tsx",
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "shared/**/*.ts",
+    "vitest.config.ts"
   ]
 }

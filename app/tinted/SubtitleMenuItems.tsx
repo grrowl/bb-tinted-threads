@@ -39,7 +39,7 @@ function ToggleItem({
 }
 
 /**
- * Subtitle toggles for the "Rows" group of the Organize menu. The workspace
+ * Subtitle toggles for the Display menu. The workspace
  * item switches between "smart" and "off"; the branch/worktree/host modes are
  * set with `bb <plugin> prefs set subtitleWorkspace <mode>`.
  */

@@ -47,6 +47,7 @@ import {
 import type { SidebarThread } from "../model/sidebar-thread.js";
 import { useSidebarProjectName } from "../model/use-sidebar-data.js";
 import { sidebarShowProviderIconsAtom } from "../preferences/atoms.js";
+import { pinnedPlacementAtom } from "../tinted/atoms.js";
 import { AppCommandShortcutPill } from "../ui/AppCommandShortcutPill.js";
 import { SidebarStickyTier } from "../ui/sidebar.js";
 import {
@@ -336,6 +337,8 @@ function ThreadRowComponent({
   const [isContextActionsOpen, setIsContextActionsOpen] = useState(false);
   const actions = experimental_useSidebarThreadActions();
   const showProviderIcons = useAtomValue(sidebarShowProviderIconsAtom);
+  const showPinMarker =
+    useAtomValue(pinnedPlacementAtom) === "in-group" && thread.pinnedAt !== null;
   const { providers } = experimental_useProviders();
   const provider = showProviderIcons
     ? providers.find((candidate) => candidate.id === thread.providerId)
@@ -603,6 +606,15 @@ function ThreadRowComponent({
         </span>
         </TintedTitleStack>
         {isEditing ? null : <ThreadPullRequestIndicator thread={thread} />}
+        {showPinMarker && !isEditing ? (
+          <span
+            role="img"
+            aria-label="Pinned"
+            className="flex shrink-0 text-muted-foreground"
+          >
+            <Icon name="Pin" className="size-3" aria-hidden />
+          </span>
+        ) : null}
         {crossProjectLabel !== null ? (
           <Tooltip>
             <TooltipTrigger asChild>

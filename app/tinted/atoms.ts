@@ -11,3 +11,5 @@ export const subtitleProjectAtom = createSyncedPreferenceAtom("subtitleProject")
 export const densityAtom = createSyncedPreferenceAtom("density");
 export const hideEmptySectionsAtom =
   createSyncedPreferenceAtom("hideEmptySections");
+export const pinnedPlacementAtom =
+  createSyncedPreferenceAtom("pinnedPlacement");

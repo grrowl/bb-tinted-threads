@@ -23,6 +23,7 @@ import {
   sidebarEnvironmentGroupingAtom,
   sidebarShowProviderIconsAtom,
 } from "../preferences/atoms.js";
+import { pinnedPlacementAtom } from "../tinted/atoms.js";
 import { SubtitleMenuItems } from "../tinted/SubtitleMenuItems.js";
 import { DensityMenuItems } from "../tinted/Density.js";
 import { HideEmptySectionsMenuItem } from "../tinted/HideEmptySections.js";
@@ -39,7 +40,12 @@ const SIDEBAR_SORT_OPTIONS = [
   { label: "Alphabetical", sort: "alpha", direction: "ascending" },
 ] as const;
 
-type SidebarViewPage = "organize" | "sort" | "filter" | "density";
+const PINNED_PLACEMENT_OPTIONS = [
+  { label: "At top", placement: "at-top" },
+  { label: "In group", placement: "in-group" },
+] as const;
+
+type SidebarViewPage = "organize" | "sort" | "filter" | "display";
 
 export function SidebarHeaderMenuContents({
   creation,
@@ -86,9 +92,9 @@ export function SidebarHeaderMenuContents({
       {(
         [
           { page: "organize", label: "Organize", icon: "Layers" },
+          { page: "display", label: "Display", icon: "Rows2" },
           { page: "sort", label: "Sort by", icon: "ArrowUpDown" },
           { page: "filter", label: "Filter", icon: "SlidersHorizontal" },
-          { page: "density", label: "Density", icon: "Rows2" },
         ] as const
       ).map((item) =>
         compact ? (
@@ -142,17 +148,11 @@ function SidebarViewItems({ page }: { page: SidebarViewPage }) {
   const [savedDirection, setDirection] = useAtom(sidebarSortDirectionAtom);
   const setEnvironmentGrouping = useSetAtom(sidebarEnvironmentGroupingAtom);
   const groupByEnvironment = useAtomValue(sidebarGroupThreadsByEnvironmentAtom);
+  const [pinnedPlacement, setPinnedPlacement] = useAtom(pinnedPlacementAtom);
   const [showProviderIcons, setShowProviderIcons] = useAtom(
     sidebarShowProviderIconsAtom,
   );
   const selectedSort = sort === "none" ? "updated" : sort;
-  if (page === "density") {
-    return (
-      <DropdownMenuGroup aria-label="Density">
-        <DensityMenuItems />
-      </DropdownMenuGroup>
-    );
-  }
   if (page === "filter") {
     return (
       <DropdownMenuGroup aria-label="Filter">
@@ -183,6 +183,34 @@ function SidebarViewItems({ page }: { page: SidebarViewPage }) {
           );
         })}
       </DropdownMenuGroup>
+    );
+  }
+  if (page === "display") {
+    return (
+      <>
+        <DropdownMenuGroup aria-label="Rows">
+          <DropdownMenuLabel>Rows</DropdownMenuLabel>
+          <DropdownMenuItem
+            role="menuitemcheckbox"
+            aria-checked={showProviderIcons}
+            onSelect={(event) => {
+              event.preventDefault();
+              setShowProviderIcons(!showProviderIcons);
+            }}
+          >
+            Provider icons
+            <span className="ml-auto inline-flex size-4 shrink-0 items-center justify-center">
+              {showProviderIcons && <Icon name="Check" className="size-4" />}
+            </span>
+          </DropdownMenuItem>
+          <SubtitleMenuItems />
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup aria-label="Density">
+          <DropdownMenuLabel>Density</DropdownMenuLabel>
+          <DensityMenuItems />
+        </DropdownMenuGroup>
+      </>
     );
   }
   if (page === "organize") {
@@ -228,22 +256,26 @@ function SidebarViewItems({ page }: { page: SidebarViewPage }) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup aria-label="Rows">
-          <DropdownMenuLabel>Rows</DropdownMenuLabel>
-          <DropdownMenuItem
-            role="menuitemcheckbox"
-            aria-checked={showProviderIcons}
-            onSelect={(event) => {
-              event.preventDefault();
-              setShowProviderIcons(!showProviderIcons);
-            }}
-          >
-            Provider icons
-            <span className="ml-auto inline-flex size-4 shrink-0 items-center justify-center">
-              {showProviderIcons && <Icon name="Check" className="size-4" />}
-            </span>
-          </DropdownMenuItem>
-          <SubtitleMenuItems />
+        <DropdownMenuGroup aria-label="Pinned">
+          <DropdownMenuLabel>Pinned</DropdownMenuLabel>
+          {PINNED_PLACEMENT_OPTIONS.map((option) => (
+            <DropdownMenuItem
+              key={option.placement}
+              role="menuitemradio"
+              aria-checked={pinnedPlacement === option.placement}
+              onSelect={(event) => {
+                event.preventDefault();
+                setPinnedPlacement(option.placement);
+              }}
+            >
+              {option.label}
+              <span className="ml-auto inline-flex size-4 shrink-0 items-center justify-center">
+                {pinnedPlacement === option.placement && (
+                  <Icon name="Check" className="size-4" />
+                )}
+              </span>
+            </DropdownMenuItem>
+          ))}
         </DropdownMenuGroup>
       </>
     );

@@ -22,6 +22,7 @@ import {
   sidebarSortDirectionAtom,
   sidebarShowProviderIconsAtom,
 } from "../preferences/atoms.js";
+import { pinnedPlacementAtom } from "../tinted/atoms.js";
 import type { OrganizationMode } from "../../shared/preferences.js";
 
 installTestPluginRuntime();
@@ -48,6 +49,7 @@ function setup(
   store.set(sidebarSortDirectionAtom, "default");
   store.set(sidebarEnvironmentGroupingAtom, "auto");
   store.set(sidebarShowProviderIconsAtom, false);
+  store.set(pinnedPlacementAtom, "at-top");
   const newThread = vi.fn();
   const newSection = vi.fn();
   render(
@@ -174,9 +176,9 @@ describe("sidebar header controls", () => {
     ).toEqual([
       "New section",
       "Organize",
+      "Display",
       "Sort by",
       "Filter",
-      "Density",
       "Rename",
       "Remove",
     ]);
@@ -266,14 +268,28 @@ describe("sidebar header controls", () => {
     expect(screen.queryByRole("menuitem", { name: /^Reset/ })).toBeNull();
   });
 
-  it("toggles provider icons in the Organize Rows group", async () => {
+  it("sets where pinned threads appear in the Organize Pinned group", async () => {
     const { store } = setup();
     await openMenu();
     await openSubmenu("Organize");
+    expect(screen.getByRole("group", { name: "Pinned" })).toBeTruthy();
+    expect(store.get(pinnedPlacementAtom)).toBe("at-top");
+    fireEvent.click(await screen.findByRole("menuitemradio", { name: "In group" }));
+    expect(store.get(pinnedPlacementAtom)).toBe("in-group");
+    expect(
+      screen.getByRole("menuitemradio", { name: "At top" }).getAttribute("aria-checked"),
+    ).toBe("false");
+  });
+
+  it("toggles provider icons in the Display menu", async () => {
+    const { store } = setup();
+    await openMenu();
+    await openSubmenu("Display");
     const toggle = await screen.findByRole("menuitemcheckbox", {
       name: "Provider icons",
     });
     expect(screen.getByRole("group", { name: "Rows" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Density" })).toBeTruthy();
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(toggle);
     expect(store.get(sidebarShowProviderIconsAtom)).toBe(true);

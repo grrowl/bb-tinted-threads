@@ -49,7 +49,7 @@ export function SidebarHeaderControls({
   const creation = useContext(HeaderCreationContext);
   const compact = useIsCompactViewport();
   const [page, setPage] = useState<
-    "organize" | "sort" | "filter" | "density" | null
+    "organize" | "sort" | "filter" | "display" | null
   >(null);
   const changeOpen = (next: boolean) => {
     if (!next) setPage(null);
@@ -94,7 +94,9 @@ export function SidebarHeaderControls({
                 ? "Sort by"
                 : page === "filter"
                   ? "Filter"
-                  : `${label} actions`
+                  : page === "display"
+                    ? "Display"
+                    : `${label} actions`
           }
         >
           <SidebarHeaderMenuContents

@@ -17,6 +17,9 @@ export type SubtitleWorkspaceMode = z.infer<typeof subtitleWorkspaceModeSchema>;
 export const densitySchema = z.enum(["default", "comfortable", "compact"]);
 export type Density = z.infer<typeof densitySchema>;
 
+export const pinnedPlacementSchema = z.enum(["at-top", "in-group"]);
+export type PinnedPlacement = z.infer<typeof pinnedPlacementSchema>;
+
 function tintedPreference<Schema extends z.ZodTypeAny>(
   schema: Schema,
   defaultValue: z.infer<Schema>,
@@ -55,6 +58,11 @@ export const tintedPreferenceDefinitions = {
     z.boolean(),
     false,
     "Hide project sections that have no threads to show.",
+  ),
+  pinnedPlacement: tintedPreference(
+    pinnedPlacementSchema,
+    "at-top",
+    "Where pinned threads appear: at-top gathers them in the Pinned section, in-group keeps each one inside its own group.",
   ),
   subtitleWorkspace: tintedPreference(
     subtitleWorkspaceModeSchema,

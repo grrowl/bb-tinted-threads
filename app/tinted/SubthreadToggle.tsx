@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { SidebarChildToggleChevron } from "../rows/SidebarChildToggleChevron.js";
 import {
@@ -17,12 +18,12 @@ const TOGGLE_TONE_CLASS: Record<TintedTone, string> = {
   idle: "",
 };
 
-/**
- * A parent row's disclosure with its sub-thread count folded in: `[6 ›]`,
- * tinted by the most attention-worthy child. It stays visible at rest, unlike
- * native's expanded chevron, because the count is worth seeing. The per-tone
- * breakdown is the count's tooltip; the label stays native's.
- */
+const COUNT_TONE_CLASS: Record<TintedTone, string> = {
+  blocked: "text-destructive",
+  working: "text-emerald-600 dark:text-emerald-400",
+  idle: "text-muted-foreground",
+};
+
 export function SubthreadToggle({
   counts,
   isCollapsed,
@@ -40,7 +41,8 @@ export function SubthreadToggle({
 }) {
   const tone = worstTintedTone(counts) ?? "idle";
   const total = counts.blocked + counts.working + counts.idle;
-  const breakdown = TONES.filter((segmentTone) => counts[segmentTone] > 0)
+  const segments = TONES.filter((segmentTone) => counts[segmentTone] > 0);
+  const breakdown = segments
     .map((segmentTone) => `${counts[segmentTone]} ${segmentTone}`)
     .join(", ");
   const summary = `${total} sub-thread${total === 1 ? "" : "s"}${
@@ -59,7 +61,18 @@ export function SubthreadToggle({
       collapseLabel={`Collapse ${title} threads`}
       onToggle={onToggle}
     >
-      {total > 0 ? <span title={summary}>{total}</span> : null}
+      {total > 0 ? (
+        <span title={summary} className="text-muted-foreground">
+          {segments.map((segmentTone, index) => (
+            <Fragment key={segmentTone}>
+              {index > 0 ? "/" : null}
+              <span className={COUNT_TONE_CLASS[segmentTone]}>
+                {counts[segmentTone]}
+              </span>
+            </Fragment>
+          ))}
+        </span>
+      ) : null}
     </SidebarChildToggleChevron>
   );
 }

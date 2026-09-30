@@ -28,10 +28,9 @@ and Tinted Threads adds its own features on top.
   waiting for input or it failed. A row turns green while work is running,
   including background agents, background commands, workflows, plan mode, and
   goals.
-- **Sub-thread counts.** A parent row shows how many sub-threads it has inside
-  its expand button, e.g., `[6 ›]`. The button is green when a sub-thread is
-  working and red when a sub-thread needs you. Hover the number to see the
-  count for each status.
+- **Sub-thread counts.** A parent row's expand button shows the counts for
+  stalled, running, and idle sub-threads, e.g., `[1/2/1 ›]`, in red, green,
+  and grey. Zero counts are omitted. Hover the counts to see the status labels.
 - **Subtitles.** A second line under each title can show the model, the
   project, the workspace (branch, worktree, or host), and the uncommitted diff.
   You can turn each part on or off under **Organize → Rows**.

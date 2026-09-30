@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSidebarThreadComparator } from "./ProjectList.js";
+import { getSidebarThreadComparator, pinnedFirstComparator } from "./ProjectList.js";
 import { getThreadSidebarExpansion } from "./useSidebarThreadReveal.js";
 import {
   CHRONOLOGICAL_CONTAINER_ID,
@@ -116,6 +116,29 @@ const cherry = thread({
 function order(comparator: ThreadComparator, entries: SidebarThread[]) {
   return [...entries].sort(comparator).map((entry) => entry.id);
 }
+
+describe("pinnedFirstComparator", () => {
+  it.each(["ascending", "descending"] as const)(
+    "puts pinned threads first while keeping the base order, %s",
+    (direction) => {
+      const entries = [
+        thread({ id: "a_plain", title: "Alpha", createdAt: 1 }),
+        thread({ id: "z_pinned", title: "Zulu", createdAt: 2, pinnedAt: 5 }),
+        thread({ id: "m_plain", title: "Mike", createdAt: 3 }),
+        thread({ id: "b_pinned", title: "Bravo", createdAt: 4, pinnedAt: 6 }),
+      ];
+      const compare = pinnedFirstComparator(
+        getSidebarThreadComparator("alpha", direction),
+      );
+      const ids = entries.sort(compare).map((entry) => entry.id);
+      expect(ids.slice(0, 2).sort()).toEqual(["b_pinned", "z_pinned"]);
+      expect(ids.slice(2).sort()).toEqual(["a_plain", "m_plain"]);
+      expect(ids.indexOf("b_pinned") < ids.indexOf("z_pinned")).toBe(
+        direction === "ascending",
+      );
+    },
+  );
+});
 
 describe("getSidebarThreadComparator", () => {
   it.each(["updated", "none"] as const)(

@@ -18,6 +18,8 @@ and Tinted Threads adds its own features on top.
 - Create your own sections with **New section** in the list menu.
 - Organize the list by project, by machine, or into custom sections, and
   optionally group threads by environment.
+- Keep pinned threads together in a **Pinned** section at the top, or leave each
+  one inside its own group, under **Organize → Pinned**.
 - Sort by updated time, created time, or title, and filter active and
   archived threads.
 - bb syncs your sections, order, and collapsed rows across devices.
@@ -33,12 +35,12 @@ and Tinted Threads adds its own features on top.
   and grey. Zero counts are omitted. Hover the counts to see the status labels.
 - **Subtitles.** A second line under each title can show the model, the
   project, the workspace (branch, worktree, or host), and the uncommitted diff.
-  You can turn each part on or off under **Organize → Rows**.
+  You can turn each part on or off under **Display**.
 - **Pull request status.** A thread with a pull request shows its state at the
   right edge of the row, with a mark when checks fail or a review is waiting,
   and the lines added and removed on the branch.
 - **Density.** Choose **Default**, **Comfortable**, or **Compact** row spacing
-  from the **Density** menu. Compact is the row height of bb's stock sidebar.
+  under **Display → Density**. Compact is the row height of bb's stock sidebar.
 - **Hide empty projects.** When the list is organized by project, turn on
   **Organize → Sections → Hide empty** to hide projects that have no threads
   to show. The project you are in always stays visible.

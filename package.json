@@ -1,6 +1,6 @@
 {
   "name": "bb-plugin-tinted-threads",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "type": "module",
   "description": "bb's own sidebar thread list with status-tinted rows, model, project, pull request, and diff subtitles, tinted sub-thread counts, and density options.",
   "engines": {

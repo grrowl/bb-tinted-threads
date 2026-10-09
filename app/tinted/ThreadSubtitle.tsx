@@ -238,7 +238,9 @@ export const ThreadSubtitle = memo(function ThreadSubtitle({
       {showModel ? <ModelCell thread={thread} /> : null}
       {showProject ? <ProjectCell projectId={thread.projectId} /> : null}
       {workspace ? (
-        <span className="min-w-0 flex-[0_1_5.25rem] truncate font-mono">
+        // Full width when there is room; the high shrink factor makes it give
+        // way first, before the model or project, and the fixed-size diff pills.
+        <span className="min-w-0 flex-[0_10_auto] truncate font-mono">
           {workspace}
         </span>
       ) : null}

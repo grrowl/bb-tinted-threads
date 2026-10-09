@@ -21,6 +21,7 @@ import {
   sidebarCollapsedThreadSectionsAtom,
   sidebarOrganizationModeAtom,
 } from "../preferences/atoms.js";
+import { pinnedPlacementAtom } from "../tinted/atoms.js";
 import { usePreferencesReady } from "../preferences/PreferencesSync.js";
 
 interface ThreadSidebarExpansionArgs {
@@ -135,9 +136,13 @@ export function useSidebarThreadRevealCore({
     () => new Map(threads.map((thread) => [thread.id, thread])),
     [threads],
   );
+  const pinnedPlacement = useAtomValue(pinnedPlacementAtom);
   const effectivePinnedThreadIds = useMemo(
-    () => buildPinnedSidebarState({ threads }).effectivePinnedThreadIds,
-    [threads],
+    () =>
+      buildPinnedSidebarState({
+        threads: pinnedPlacement === "in-group" ? [] : threads,
+      }).effectivePinnedThreadIds,
+    [pinnedPlacement, threads],
   );
   const previousThreadId = useRef<string | undefined>(undefined);
   const pendingNavigation = useRef<string | undefined>(undefined);

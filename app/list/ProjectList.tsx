@@ -15,7 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { hideEmptySectionsAtom } from "../tinted/atoms.js";
+import { hideEmptySectionsAtom, pinnedPlacementAtom } from "../tinted/atoms.js";
 import { isHiddenEmptyProject } from "../tinted/HideEmptySections.js";
 import { toast } from "sonner";
 import type { SidebarThread } from "../model/sidebar-thread.js";
@@ -328,6 +328,35 @@ export function getSidebarThreadComparator(
     }
     return multiplier * comparison;
   };
+}
+
+function isPinnedItem(item: ProjectThreadItem): boolean {
+  switch (item.kind) {
+    case "thread":
+      return item.node.thread.pinnedAt !== null;
+    case "environment":
+      return item.group.nodes.some((node) => node.thread.pinnedAt !== null);
+    case "section":
+      return false;
+  }
+}
+
+/** Sorts pinned threads ahead of unpinned ones, then defers to `base`. */
+export function pinnedFirstComparator(base: ThreadComparator): ThreadComparator {
+  const comparator: ThreadComparator = (left, right) => {
+    const pinnedDelta =
+      Number(right.pinnedAt !== null) - Number(left.pinnedAt !== null);
+    return pinnedDelta !== 0 ? pinnedDelta : base(left, right);
+  };
+  if (base.compareItems) {
+    const compareItems = base.compareItems;
+    comparator.compareItems = (left, right) => {
+      const pinnedDelta =
+        Number(isPinnedItem(right)) - Number(isPinnedItem(left));
+      return pinnedDelta !== 0 ? pinnedDelta : compareItems(left, right);
+    };
+  }
+  return comparator;
 }
 
 function getSectionMutationErrorMessage(
@@ -1585,15 +1614,20 @@ function ProjectListComponent({
     sidebarChronologicalSortAtom,
   );
   const sortDirection = useAtomValue(sidebarSortDirectionAtom);
+  const pinnedPlacement = useAtomValue(pinnedPlacementAtom);
   const activeRename = useSidebarRenameState();
   const sidebarThreadComparator = useMemo<ThreadComparator>(
-    () =>
-      getSidebarThreadComparator(
+    () => {
+      const comparator = getSidebarThreadComparator(
         chronologicalSort,
         sortDirection,
         activeRename,
-      ),
-    [chronologicalSort, sortDirection, activeRename],
+      );
+      return pinnedPlacement === "in-group"
+        ? pinnedFirstComparator(comparator)
+        : comparator;
+    },
+    [chronologicalSort, sortDirection, activeRename, pinnedPlacement],
   );
   const collapsedThreadIds = useMemo(
     () => new Set(collapsedThreadIdList),
@@ -1636,9 +1670,10 @@ function ProjectListComponent({
       buildPinnedSidebarState({
         draftThreadIds,
         groupEnvironmentThreads: groupThreadsByEnvironment,
-        threads,
+        // In-group pins stay in their own group, so the Pinned section is empty.
+        threads: pinnedPlacement === "in-group" ? [] : threads,
       }),
-    [draftThreadIds, groupThreadsByEnvironment, threads],
+    [draftThreadIds, groupThreadsByEnvironment, pinnedPlacement, threads],
   );
   const pinnedRootThreads = useMemo(
     () => pinnedSidebarState.rootNodes.map((node) => node.thread),

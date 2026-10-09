@@ -185,6 +185,16 @@ describe("thread-list plugin", () => {
     ).not.toBeNull();
   });
 
+  it("keeps pinned threads in their own group when placement is in-group", async () => {
+    setPreferencesMirrorStorageForTest(null);
+    renderList({ organizationMode: "chronological", pinnedPlacement: "in-group" });
+
+    await screen.findByText("Pinned thread");
+    expect(sectionHeaders()).not.toContain("Pinned");
+    expect(threadIds()).toContain("thr_pinned");
+    expect(screen.getAllByRole("img", { name: "Pinned" })).toHaveLength(1);
+  });
+
   it("groups pinned worktree roots when environment grouping is enabled", async () => {
     setPreferencesMirrorStorageForTest(null);
     const environment = {
